@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const PostSchema = new mongoose.Schema({
+const CommentSchema = new mongoose.Schema({
 
     author: {
         ref: 'User',
@@ -16,10 +16,10 @@ const PostSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId
     }],
 
-    comments: [{
-        ref: 'Comment',
+    post: {
+        ref: 'Post',
         type: mongoose.Schema.Types.ObjectId
-    }],
+    },
 
     createdAt: {
         type: Date,
@@ -28,4 +28,4 @@ const PostSchema = new mongoose.Schema({
 
 }); // Schema()
 
-module.exports = mongoose.model('Post', PostSchema);
+module.exports = mongoose.model('Comment', CommentSchema);

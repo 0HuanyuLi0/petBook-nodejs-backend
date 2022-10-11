@@ -1,14 +1,28 @@
 const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
+
 const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+const jwtAuthenticate = require('express-jwt')
 
 const User = require('./models/User')
 const Post = require('./models/Post')
+const Comment = require('./models/Comment')
 
 const app = express()
 const PORT = 3000
 const saltRounds = 10
+// TODO this should be in a .env file
+const SERVER_SECRET_KEY = 'mySecretKeyHERE'
+
+const checkAuth=()=>{
+    return jwtAuthenticate.expressjwt({
+        secret:SERVER_SECRET_KEY, // check the token hasn't been tampered with
+        algorithms:['HS256'],
+        requestProperty:'auth' // gives us 'req.auth'
+    })
+}
 
 
 
@@ -40,7 +54,7 @@ app.get('/', (req, res) => {
 app.post('/users', async (req, res) => {
     try {
         // const salt = await bcrypt.genSalt(saltRounds)
-        const hashedPassword = await bcrypt.hash(req.body.password, saltRounds)
+        const hashedPassword = bcrypt.hashSync(req.body.password, saltRounds)
 
         const newUser = new User({
             name: req.body.name,
@@ -49,7 +63,15 @@ app.post('/users', async (req, res) => {
         })
 
         const user = await newUser.save()
-        res.json(user)
+
+        const token = jwt.sign(
+            {_id:user._id},
+            SERVER_SECRET_KEY,
+            {expiresIn:'72h'}
+        )
+
+        res.json({token,user})
+
     } catch (err) {
         console.error('Error creating new user: ', err);
         res.json(err)
@@ -59,18 +81,33 @@ app.post('/users', async (req, res) => {
 // login
 app.post('/login', async (req, res) => {
     try {
-        const user = await User.findOne({ email: req.body.email })
+        const{ email , password} = req.body
+
+        const user = await User.findOne({email})
+
         if (!user) {
-            throw new Error('user not found')
-
+            res.json('user not found')
+            return
+            // throw new Error('user not found')
         }
 
-        const validation = await bcrypt.compare(req.body.password, user.password)
+        const validation = bcrypt.compareSync(password, user.password)
         if (!validation) {
-            throw new Error('wrong password')
+            res.json('wrong password')
+            return
+            // throw new Error('wrong password')
         }
 
-        res.json(user)
+        const token = jwt.sign(
+            {_id:user._id},
+            SERVER_SECRET_KEY,
+            {expiresIn:'72h'}
+        )
+
+        // strong params
+        // let {password, ...filteredUser} = user.toJSON()
+
+        res.json({token,user})
 
     } catch (err) {
         console.error('Error login: ', err);
@@ -122,20 +159,7 @@ app.post('/user/:id', async (req, res) => {
 
 })
 
-//delete user
-app.delete('/user/:id', async (req, res) => {
-    try {
-        if (req.body.userId !== req.params.id) {
-            throw new Error('You do not have right to detele this account')
-        }
-        const user = await User.findByIdAndDelete(req.params.id)
-        res.json(user)
-    } catch (err) {
-        console.error('Error detele user', err);
-        res.json(err)
-    }
 
-})
 
 //======= followe ========
 //follow a user
@@ -184,7 +208,7 @@ app.post('/unfollow/:id',async(req,res)=>{
 //get all posts
 app.get('/posts',async(req,res)=>{
     try{
-        const posts = await Post.find().populate({path:'author',select:['name','email','profilePicture','coverPicture','_id']})
+        const posts = await Post.find().populate({path:'author',select:['name','email','profilePicture','coverPicture','_id']}).populate({path:'comments',select:'_id'})
         res.json(posts)
     }catch(err){
         console.error('Error get all posts ',err);
@@ -192,23 +216,7 @@ app.get('/posts',async(req,res)=>{
     }
 })
 
-//post a post
-app.post('/posts',async(req,res)=>{
-    try{
-        const newPost = new Post({
-            author:req.body.userId,
-            message:req.body.message,
-            img_url:req.body.img_url
-        })
 
-        const post = await newPost.save()
-        res.json(post)
-
-    }catch(err){
-        console.error('Error get post a post ',err);
-        res.json(err)
-    }
-})
 
 // get a post
 app.get('/post/:id',async(req,res)=>{
@@ -240,21 +248,51 @@ app.post('/post/:id',async(req,res)=>{
     }
 })
 
-//delete a post
-app.delete('/post/:id',async(req,res)=>{
-    try{
-        const post = await Post.findById(req.params.id)
 
-        if (post.author._id.toString() !== req.body.userId) {
-            throw new Error('You do not have the right to edit this post')
+
+
+
+  // ========== routes below this line only work for authenticated users =============
+  app.use(checkAuth()) // provide req.auth(the user id from the token) to all following routes
+
+  // custom middleware, defined inline:
+//   use the req.auth ID from the middleware above and try to look up a user with it if not found,return an error code
+  app.use(async(req,res,next)=>{
+    try{
+        const user = await User.findById(req.auth._id)
+        if (user === null) {
+            res.sendStatus(401)
+        }else{
+            req.current_user = user
+            next() // move on to the next route
         }
 
-        const deletePost = await Post.findByIdAndDelete(req.params.id)
+    }catch(err){
+        console.log('Error querying user',err);
+        res.sendStatus(500)
+    }
+  })
 
-        res.json(deletePost)
+  // all routes below now have a 'req.current_user' defined
+  app.get('/current_user', (req,res)=>{
+    res.json(req.current_user)
+  })
+
+  //post a post
+app.post('/posts',async(req,res)=>{
+    try{
+        console.log("=====",req.current_user._id);
+        const newPost = new Post({
+            author:req.current_user._id,
+            message:req.body.message,
+            img_url:req.body.img_url
+        })
+
+        const post = await newPost.save()
+        res.json(post)
 
     }catch(err){
-        console.error('Error delete the post ',err)
+        console.error('Error get post a post ',err);
         res.json(err)
     }
 })
@@ -262,16 +300,69 @@ app.delete('/post/:id',async(req,res)=>{
 //like a post
 app.post("/like/:id", async (req, res) => {
     try {
-      const post = await Post.findById(req.params.id)
-      if (!post.likes.includes(req.body.userId)) {
-        await post.updateOne({ $push: { likes: req.body.userId } })
-        res.json(post)
+      let post = await Post.findById(req.params.id)
+      
+      if (!post.likes.includes(req.current_user._id)) {
+        await post.updateOne({ $push: { likes: req.current_user._id } })
+
+        res.json({
+            liked:true,
+            number:post.likes.length + 1
+        })
+
       } else {
-        await post.updateOne({ $pull: { likes: req.body.userId } })
-        res.json(post)
+
+        await post.updateOne({ $pull: { likes: req.current_user._id } })
+
+        res.json({
+            liked:false,
+            number:post.likes.length - 1
+        })
       }
     } catch (err) {
     console.error('Error like the post ',err)
       res.json(err)
     }
   });
+
+  //delete a post
+app.delete('/post/:id',async(req,res)=>{
+    console.log("===============",req.current_user._id);
+    try{
+        const post = await Post.findById(req.params.id)
+
+        if (post.author._id.toString() !== req.current_user._id.toString()) {
+            console.log("===============",post.author._id.toString());
+            res.json('You do not have the right to edit this post')
+            return
+        }
+
+        const deletePost = await Post.findByIdAndDelete(req.params.id)
+
+        res.json('deleted')
+
+
+    }catch(err){
+        console.error('Error delete the post ',err)
+        res.json(err)
+    }
+})
+
+//delete user
+app.delete('/user/:id', async (req, res) => {
+    try {
+        if (req.current_user._id.toString() !== req.params.id.toString()) {
+            throw new Error('You do not have right to detele this account')
+        }
+        const user = await User.findByIdAndDelete(req.params.id)
+
+        await Post.deleteMany({author:req.current_user._id.toString()})
+        await Comment.deleteMany({author:req.current_user._id.toString()})
+
+        res.json('user deleted')
+    } catch (err) {
+        console.error('Error detele user', err);
+        res.json(err)
+    }
+
+})

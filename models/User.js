@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
         type: String,
         require: true,
         min: 3,
-        unique: true
+        // unique: true
     },
 
     email: {
@@ -22,7 +22,7 @@ const UserSchema = new mongoose.Schema({
 
     profilePicture: {
         type: String,
-        default: ''
+        default: 'https://imageio.forbes.com/specials-images/dam/imageserve/1068867780/960x0.jpg?format=jpg&width=960'
     },
 
     coverPicture: {
