@@ -11,6 +11,32 @@ const Post = require('./models/Post')
 const Comment = require('./models/Comment')
 
 const app = express()
+
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+    cors: {
+        origin: ['http://localhost:3001']
+    }
+})
+
+
+io.on('connection', function (socket) {
+    console.log('Client connected to the WebSocket', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+    });
+
+    socket.on('chat message', function (msg) {
+        console.log("Received a chat message");
+        io.emit('chat message', msg);
+    });
+
+    socket.on('custom-event', (data) => {
+        console.log(data);
+    })
+})
+
 const PORT = 3000
 const saltRounds = 10
 // TODO this should be in a .env file
@@ -32,8 +58,11 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-app.listen(PORT, () => {
-    console.log(`Server listening at http://localhost:${PORT} ...`);
+http.listen(PORT, () => {
+    const host = http.address().address
+    const port = http.address().port
+    console.log('App listening at http://%s:%s', host, port)
+    // console.log(`Server listening at http://localhost:${PORT} ...`);
 })
 
 const db = mongoose.connection;
@@ -118,7 +147,7 @@ app.post('/login', async (req, res) => {
 // get all users info
 app.get('/user/image/:id', async (req, res) => {
     try {
-        const usersImage = await User.findById(req.params.id).select(['profilePicture','name'])
+        const usersImage = await User.findById(req.params.id).select(['profilePicture', 'name'])
 
         res.json(usersImage)
     } catch (err) {
@@ -185,10 +214,10 @@ app.get('/posts/profile/:id', async (req, res) => {
     try {
         const posts = await Post.find({
             author: {
-                _id:req.params.id
+                _id: req.params.id
             }
         }).populate({ path: 'author', select: ['name', 'email', 'profilePicture', '_id'] }).populate('comments')
-        console.log("=====profile posts:",posts);
+        console.log("=====profile posts:", posts);
         res.json(posts)
     } catch (err) {
         console.error('Error get all posts ', err);
@@ -240,7 +269,7 @@ app.post('/follow/:id', async (req, res) => {
 
         const newFollowing = await User.findById(req.params.id)
 
-        const currentUser = await User.findById(req.body.currentUserId) 
+        const currentUser = await User.findById(req.body.currentUserId)
 
         if (currentUser.following.includes(req.params.id)) {
             throw new Error('you have followed this user already')
@@ -251,7 +280,7 @@ app.post('/follow/:id', async (req, res) => {
         const follower_res = await newFollowing.updateOne({ $push: { followers: currentUser._id } })
 
         res.json({
-            following:currentUser.following, followers:currentUser.followers
+            following: currentUser.following, followers: currentUser.followers
         })
 
     } catch (err) {
@@ -275,9 +304,9 @@ app.post('/unfollow/:id', async (req, res) => {
 
         const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
 
-        const follower_res = await following.updateOne({ $pull: { followers: following._id} })
+        const follower_res = await following.updateOne({ $pull: { followers: following._id } })
 
-        res.json({currentUser_res,follower_res})
+        res.json({ currentUser_res, follower_res })
 
     } catch (err) {
         console.error('Error unfollow a user', err);
@@ -492,10 +521,10 @@ app.get("/user/:id/friends", async (req, res) => {
             select: ['name', 'email', '_id', 'profilePicture']
         })
 
-        const friends = {following:userFriends.following, followers:userFriends.followers}
+        const friends = { following: userFriends.following, followers: userFriends.followers }
 
         // console.log('=======friends',friends);
-        
+
         res.json(friends)
 
         // res.json(user);
