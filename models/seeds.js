@@ -41,6 +41,15 @@ db.once('open', async () => {
 
     ]); // User.create()
 
+    //------friends---------
+
+    createdUsers[1].following.push(createdUsers[0]._id)
+    createdUsers[1].followers.push(createdUsers[0]._id)
+   
+
+    await createdUsers[0].save()
+    // await createdUsers[1].save()
+
 
 
     // ========== Post seeds ==========

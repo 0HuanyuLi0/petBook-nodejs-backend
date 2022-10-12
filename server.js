@@ -116,10 +116,11 @@ app.post('/login', async (req, res) => {
 })
 
 // get all users info
-app.get('/users', async (req, res) => {
+app.get('/user/image/:id', async (req, res) => {
     try {
-        const users = await User.find()
-        res.json(users)
+        const usersImage = await User.findById(req.params.id).select(['profilePicture','name'])
+
+        res.json(usersImage)
     } catch (err) {
         console.error('Error loading all users: ', err);
     }
@@ -161,48 +162,8 @@ app.post('/user/:id', async (req, res) => {
 
 
 
-//======= followe ========
-//follow a user
-app.post('/follow/:id', async (req, res) => {
-    try {
-        const currentUser = await User.findById(req.body.userId)
-        const follower = await User.findById(req.params.id)
 
-        if (currentUser.following.includes(req.params.id)) {
-            throw new Error('you have followed this user already')
-        }
 
-        const currentUser_res = await currentUser.updateOne({ $push: { following: req.params.id } })
-        const follower_res = await follower.updateOne({ $push: { followers: req.body.userId } })
-
-        res.json(currentUser_res)
-
-    } catch (err) {
-        console.error('Error follow a user', err);
-        res.json(err)
-    }
-})
-
-//unfollow a user
-app.post('/unfollow/:id', async (req, res) => {
-    try {
-        const currentUser = await User.findById(req.body.userId)
-        const follower = await User.findById(req.params.id)
-
-        if (!currentUser.following.includes(req.params.id)) {
-            throw new Error('you did not follow this user')
-        }
-
-        const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
-        const follower_res = await follower.updateOne({ $pull: { followers: req.body.userId } })
-
-        res.json(currentUser_res)
-
-    } catch (err) {
-        console.error('Error follow a user', err);
-        res.json(err)
-    }
-})
 
 
 
@@ -218,6 +179,23 @@ app.get('/posts', async (req, res) => {
         res.json(err)
     }
 })
+
+//get profile posts
+app.get('/posts/profile/:id', async (req, res) => {
+    try {
+        const posts = await Post.find({
+            author: {
+                _id:req.params.id
+            }
+        }).populate({ path: 'author', select: ['name', 'email', 'profilePicture', '_id'] }).populate('comments')
+        console.log("=====profile posts:",posts);
+        res.json(posts)
+    } catch (err) {
+        console.error('Error get all posts ', err);
+        res.json(err)
+    }
+})
+
 
 
 // get a post's all comments
@@ -256,6 +234,56 @@ app.post('/post/:id', async (req, res) => {
     }
 })
 
+//follow a user
+app.post('/follow/:id', async (req, res) => {
+    try {
+
+        const newFollowing = await User.findById(req.params.id)
+
+        const currentUser = await User.findById(req.body.currentUserId) 
+
+        if (currentUser.following.includes(req.params.id)) {
+            throw new Error('you have followed this user already')
+        }
+
+        const currentUser_res = await currentUser.updateOne({ $push: { following: req.params.id } })
+
+        const follower_res = await newFollowing.updateOne({ $push: { followers: currentUser._id } })
+
+        res.json({
+            following:currentUser.following, followers:currentUser.followers
+        })
+
+    } catch (err) {
+        console.error('Error follow a user', err);
+        res.json(err)
+    }
+})
+
+//unfollow a user
+app.post('/unfollow/:id', async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.body.currentUserId)
+        const following = await User.findById(req.params.id)
+
+        // console.log('====',following);
+        // console.log('====',following);
+
+        if (!currentUser.following.includes(req.params.id)) {
+            throw new Error('you did not follow this user')
+        }
+
+        const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
+
+        const follower_res = await following.updateOne({ $pull: { followers: following._id} })
+
+        res.json({currentUser_res,follower_res})
+
+    } catch (err) {
+        console.error('Error unfollow a user', err);
+        res.json(err)
+    }
+})
 
 
 
@@ -448,3 +476,33 @@ app.delete('/comment/:id', async (req, res) => {
         res.json(err)
     }
 })
+
+//get friends
+app.get("/user/:id/friends", async (req, res) => {
+
+    try {
+        if (req.current_user._id.toString() !== req.params.id) {
+            throw new Error('You do not have right to get this account info')
+        }
+        const userFriends = await User.findById(req.params.id).populate({
+            path: 'following',
+            select: ['name', 'email', '_id', 'profilePicture']
+        }).populate({
+            path: 'followers',
+            select: ['name', 'email', '_id', 'profilePicture']
+        })
+
+        const friends = {following:userFriends.following, followers:userFriends.followers}
+
+        // console.log('=======friends',friends);
+        
+        res.json(friends)
+
+        // res.json(user);
+    } catch (err) {
+        console.error('Error get user friend', err);
+        res.json(err)
+    }
+});
+
+//======= followe ========

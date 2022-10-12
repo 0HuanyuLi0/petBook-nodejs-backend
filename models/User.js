@@ -30,17 +30,18 @@ const UserSchema = new mongoose.Schema({
         default: ''
     },
 
-    following: {
+    following: [{
         // the people who I am following
-        type: Array,
-        default: []
-    },
+        ref:'User',
+        type:mongoose.Schema.Types.ObjectId
+    }],
 
-    followers: {
+
+    followers: [{
         // the people who followed me
-        type: Array,
-        default: []
-    },
+        ref:'User',
+        type:mongoose.Schema.Types.ObjectId
+    }],
 
     isAdmin: {
         type: Boolean,
