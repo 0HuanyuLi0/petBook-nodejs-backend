@@ -16,11 +16,11 @@ const saltRounds = 10
 // TODO this should be in a .env file
 const SERVER_SECRET_KEY = 'mySecretKeyHERE'
 
-const checkAuth=()=>{
+const checkAuth = () => {
     return jwtAuthenticate.expressjwt({
-        secret:SERVER_SECRET_KEY, // check the token hasn't been tampered with
-        algorithms:['HS256'],
-        requestProperty:'auth' // gives us 'req.auth'
+        secret: SERVER_SECRET_KEY, // check the token hasn't been tampered with
+        algorithms: ['HS256'],
+        requestProperty: 'auth' // gives us 'req.auth'
     })
 }
 
@@ -65,12 +65,12 @@ app.post('/users', async (req, res) => {
         const user = await newUser.save()
 
         const token = jwt.sign(
-            {_id:user._id},
+            { _id: user._id },
             SERVER_SECRET_KEY,
-            {expiresIn:'72h'}
+            { expiresIn: '72h' }
         )
 
-        res.json({token,user})
+        res.json({ token, user })
 
     } catch (err) {
         console.error('Error creating new user: ', err);
@@ -81,9 +81,9 @@ app.post('/users', async (req, res) => {
 // login
 app.post('/login', async (req, res) => {
     try {
-        const{ email , password} = req.body
+        const { email, password } = req.body
 
-        const user = await User.findOne({email})
+        const user = await User.findOne({ email })
 
         if (!user) {
             res.json('user not found')
@@ -99,15 +99,15 @@ app.post('/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            {_id:user._id},
+            { _id: user._id },
             SERVER_SECRET_KEY,
-            {expiresIn:'72h'}
+            { expiresIn: '72h' }
         )
 
         // strong params
         // let {password, ...filteredUser} = user.toJSON()
 
-        res.json({token,user})
+        res.json({ token, user })
 
     } catch (err) {
         console.error('Error login: ', err);
@@ -132,10 +132,10 @@ app.get("/user/:id", async (req, res) => {
         if (req.body.userId !== req.params.id) {
             throw new Error('You do not have right to get this account info')
         }
-        
+
         const user = await User.findById(req.params.id).populate('posts')
         res.json(user)
-       
+
         // res.json(user);
     } catch (err) {
         console.error('Error get user info', err);
@@ -163,8 +163,8 @@ app.post('/user/:id', async (req, res) => {
 
 //======= followe ========
 //follow a user
-app.post('/follow/:id',async(req,res)=>{
-    try{
+app.post('/follow/:id', async (req, res) => {
+    try {
         const currentUser = await User.findById(req.body.userId)
         const follower = await User.findById(req.params.id)
 
@@ -172,20 +172,20 @@ app.post('/follow/:id',async(req,res)=>{
             throw new Error('you have followed this user already')
         }
 
-        const currentUser_res = await currentUser.updateOne({$push:{following:req.params.id}})
-        const follower_res = await follower.updateOne({$push:{followers:req.body.userId}})
+        const currentUser_res = await currentUser.updateOne({ $push: { following: req.params.id } })
+        const follower_res = await follower.updateOne({ $push: { followers: req.body.userId } })
 
         res.json(currentUser_res)
 
-    }catch(err){
+    } catch (err) {
         console.error('Error follow a user', err);
         res.json(err)
     }
 })
 
 //unfollow a user
-app.post('/unfollow/:id',async(req,res)=>{
-    try{
+app.post('/unfollow/:id', async (req, res) => {
+    try {
         const currentUser = await User.findById(req.body.userId)
         const follower = await User.findById(req.params.id)
 
@@ -193,45 +193,53 @@ app.post('/unfollow/:id',async(req,res)=>{
             throw new Error('you did not follow this user')
         }
 
-        const currentUser_res = await currentUser.updateOne({$pull:{following:req.params.id}})
-        const follower_res = await follower.updateOne({$pull:{followers:req.body.userId}})
+        const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
+        const follower_res = await follower.updateOne({ $pull: { followers: req.body.userId } })
 
         res.json(currentUser_res)
 
-    }catch(err){
+    } catch (err) {
         console.error('Error follow a user', err);
         res.json(err)
     }
 })
 
+
+
 //======= Post ========
 //get all posts
-app.get('/posts',async(req,res)=>{
-    try{
-        const posts = await Post.find().populate({path:'author',select:['name','email','profilePicture','coverPicture','_id']}).populate({path:'comments',select:'_id'})
+app.get('/posts', async (req, res) => {
+    try {
+        const posts = await Post.find().populate({ path: 'author', select: ['name', 'email', 'profilePicture', '_id'] }).populate('comments')
+
         res.json(posts)
-    }catch(err){
-        console.error('Error get all posts ',err);
+    } catch (err) {
+        console.error('Error get all posts ', err);
         res.json(err)
     }
 })
 
 
+// get a post's all comments
+app.get('/post/:id/comments', async (req, res) => {
+    try {
+        const comments = await Comment.find({
+            post: req.params.id
+        }).populate({
+            path: 'author',
+            select: ['name', 'email', '_id', 'profilePicture']
+        })
 
-// get a post
-app.get('/post/:id',async(req,res)=>{
-    try{
-        const post = await Post.findById(req.params.id).populate({path:'author',select:['name','email','profilePicture','coverPicture','_id']})
-        res.json(post)
-    }catch(err){
-        console.error('Error get the post ',err);
+        res.json(comments)
+    } catch (err) {
+        console.error('Error get the post comments ', err);
         res.json(err)
     }
 })
 
 // update a post
-app.post('/post/:id',async(req,res)=>{
-    try{
+app.post('/post/:id', async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id)
 
         if (post.author._id.toString() !== req.body.userId) {
@@ -242,8 +250,8 @@ app.post('/post/:id',async(req,res)=>{
 
         res.json(updated_post)
 
-    }catch(err){
-        console.error('Error update the post ',err);
+    } catch (err) {
+        console.error('Error update the post ', err);
         res.json(err)
     }
 })
@@ -252,47 +260,53 @@ app.post('/post/:id',async(req,res)=>{
 
 
 
-  // ========== routes below this line only work for authenticated users =============
-  app.use(checkAuth()) // provide req.auth(the user id from the token) to all following routes
+// ========== routes below this line only work for authenticated users =============
+app.use(checkAuth()) // provide req.auth(the user id from the token) to all following routes
 
-  // custom middleware, defined inline:
+// custom middleware, defined inline:
 //   use the req.auth ID from the middleware above and try to look up a user with it if not found,return an error code
-  app.use(async(req,res,next)=>{
-    try{
+app.use(async (req, res, next) => {
+    try {
         const user = await User.findById(req.auth._id)
         if (user === null) {
             res.sendStatus(401)
-        }else{
+        } else {
             req.current_user = user
             next() // move on to the next route
         }
 
-    }catch(err){
-        console.log('Error querying user',err);
+    } catch (err) {
+        console.log('Error querying user', err);
         res.sendStatus(500)
     }
-  })
+})
 
-  // all routes below now have a 'req.current_user' defined
-  app.get('/current_user', (req,res)=>{
+// all routes below now have a 'req.current_user' defined
+app.get('/current_user', (req, res) => {
     res.json(req.current_user)
-  })
+})
 
-  //post a post
-app.post('/posts',async(req,res)=>{
-    try{
-        console.log("=====",req.current_user._id);
+//post a post
+app.post('/posts', async (req, res) => {
+    try {
+        console.log("=====", req.current_user._id);
         const newPost = new Post({
-            author:req.current_user._id,
-            message:req.body.message,
-            img_url:req.body.img_url
+            author: req.current_user._id,
+            message: req.body.message,
+            img_url: req.body.img_url
         })
 
         const post = await newPost.save()
+
+        await User.findByIdAndUpdate(req.current_user._id, {
+            $push: { posts: post }
+        })
+
+
         res.json(post)
 
-    }catch(err){
-        console.error('Error get post a post ',err);
+    } catch (err) {
+        console.error('Error get post a post ', err);
         res.json(err)
     }
 })
@@ -300,50 +314,53 @@ app.post('/posts',async(req,res)=>{
 //like a post
 app.post("/like/:id", async (req, res) => {
     try {
-      let post = await Post.findById(req.params.id)
-      
-      if (!post.likes.includes(req.current_user._id)) {
-        await post.updateOne({ $push: { likes: req.current_user._id } })
+        let post = await Post.findById(req.params.id)
 
-        res.json({
-            liked:true,
-            number:post.likes.length + 1
-        })
+        if (!post.likes.includes(req.current_user._id)) {
+            await post.updateOne({ $push: { likes: req.current_user._id } })
 
-      } else {
+            res.json({
+                liked: true,
+                number: post.likes.length + 1
+            })
 
-        await post.updateOne({ $pull: { likes: req.current_user._id } })
+        } else {
 
-        res.json({
-            liked:false,
-            number:post.likes.length - 1
-        })
-      }
+            await post.updateOne({ $pull: { likes: req.current_user._id } })
+
+            res.json({
+                liked: false,
+                number: post.likes.length - 1
+            })
+        }
     } catch (err) {
-    console.error('Error like the post ',err)
-      res.json(err)
+        console.error('Error like the post ', err)
+        res.json(err)
     }
-  });
+});
 
-  //delete a post
-app.delete('/post/:id',async(req,res)=>{
-    console.log("===============",req.current_user._id);
-    try{
+//delete a post
+app.delete('/post/:id', async (req, res) => {
+    console.log("===============", req.current_user._id);
+    try {
+
         const post = await Post.findById(req.params.id)
 
         if (post.author._id.toString() !== req.current_user._id.toString()) {
-            console.log("===============",post.author._id.toString());
+            console.log("===============", post.author._id.toString());
             res.json('You do not have the right to edit this post')
             return
         }
 
         const deletePost = await Post.findByIdAndDelete(req.params.id)
 
-        res.json('deleted')
+        await Comment.deleteMany({ post: req.params.id })
+
+        res.json(req.params.id)
 
 
-    }catch(err){
-        console.error('Error delete the post ',err)
+    } catch (err) {
+        console.error('Error delete the post ', err)
         res.json(err)
     }
 })
@@ -356,8 +373,8 @@ app.delete('/user/:id', async (req, res) => {
         }
         const user = await User.findByIdAndDelete(req.params.id)
 
-        await Post.deleteMany({author:req.current_user._id.toString()})
-        await Comment.deleteMany({author:req.current_user._id.toString()})
+        await Post.deleteMany({ author: req.current_user._id.toString() })
+        await Comment.deleteMany({ author: req.current_user._id.toString() })
 
         res.json('user deleted')
     } catch (err) {
@@ -365,4 +382,69 @@ app.delete('/user/:id', async (req, res) => {
         res.json(err)
     }
 
+})
+
+//post a comment
+app.post('/comments', async (req, res) => {
+    try {
+        const newComment = new Comment({
+            author: req.current_user._id,
+            message: req.body.message,
+            img_url: req.body.img_url,
+            post: req.body.postId
+        })
+
+        const comment = await newComment.save()
+
+
+
+        await Post.findByIdAndUpdate(req.body.postId, {
+            $push: { comments: comment }
+        })
+
+
+        res.json(comment)
+
+
+    } catch (err) {
+        console.error('Error get post a post ', err);
+        res.json(err)
+    }
+})
+
+//delete a comment
+app.delete('/comment/:id', async (req, res) => {
+
+    try {
+
+        const comment = await Comment.findById(req.params.id)
+
+        const postId = comment.post._id.toString()
+
+
+        if (comment.author._id.toString() !== req.current_user._id.toString()) {
+            res.json('You do not have the right to edit this post')
+            return
+        }
+
+
+        await Post.findByIdAndUpdate(
+            postId,
+            { $pull: { comments: comment._id } }
+        )
+
+        const post = await Post.findById(postId)
+        console.log('=====Test: ', post.comments);
+
+        const deleteComment = await Comment.findByIdAndDelete(req.params.id)
+
+        // await Comment.deleteMany({ post: req.params.id })
+
+        res.json(req.params.id)
+
+
+    } catch (err) {
+        console.error('Error delete the post ', err)
+        res.json(err)
+    }
 })
