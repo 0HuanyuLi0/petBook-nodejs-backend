@@ -83,6 +83,10 @@ io.on('connection', function (socket) {
         });
     });
 
+    socket.on('addFriends',()=>{
+        io.emit('getFriends','getFriends')
+    })
+
 })
 
 
@@ -347,7 +351,9 @@ app.post('/follow/:id', async (req, res) => {
 
         const currentUser = await User.findById(req.body.currentUserId)
 
-        if (currentUser.following.includes(req.params.id)) {
+        if (currentUser.following.includes(req.params.id)
+       
+        ) {
             throw new Error('you have followed this user already')
             return
         }
@@ -375,14 +381,15 @@ app.post('/unfollow/:id', async (req, res) => {
         // console.log('====',following);
         // console.log('====',following);
 
-        if (!currentUser.following.includes(req.params.id)) {
+        if (!currentUser.following.includes(req.params.id)
+  
+        ) {
             throw new Error('you did not follow this user')
             return
         }
 
         const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
-
-        const follower_res = await following.updateOne({ $pull: { followers: following._id } })
+        const follower_res = await following.updateOne({ $pull: { followers: req.body.currentUserId } })
 
         res.json({ currentUser_res, follower_res })
 

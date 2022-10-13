@@ -4,7 +4,8 @@ const bcrypt = require('bcrypt')
 require('dotenv').config()
 const User = require('./User');
 const Post = require('./Post')
-const Comment = require('./Comment')
+const Comment = require('./Comment');
+const Message = require('./Message');
 
 mongoose.connect(process.env.MONGODB);
 
@@ -21,6 +22,7 @@ db.once('open', async () => {
     console.log('Success! DB connected, model loaded.');
 
     // ========== User seeds ==========
+    await Message.deleteMany();
     await User.deleteMany();
 
     const createdUsers = await User.create([
@@ -45,10 +47,13 @@ db.once('open', async () => {
 
     createdUsers[1].following.push(createdUsers[0]._id)
     createdUsers[1].followers.push(createdUsers[0]._id)
+
+    createdUsers[0].following.push(createdUsers[1]._id)
+    createdUsers[0].followers.push(createdUsers[1]._id)
    
 
     await createdUsers[0].save()
-    // await createdUsers[1].save()
+    await createdUsers[1].save()
 
 
 
