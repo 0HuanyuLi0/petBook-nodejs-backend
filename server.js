@@ -9,61 +9,19 @@ const jwtAuthenticate = require('express-jwt')
 const User = require('./models/User')
 const Post = require('./models/Post')
 const Comment = require('./models/Comment')
+const Message = require('./models/Message')
 
 const app = express()
-
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    cors: {
-        origin: ['http://localhost:3001']
-    }
-})
-
-
-io.on('connection', function (socket) {
-    console.log('Client connected to the WebSocket', socket.id);
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected');
-    });
-
-    socket.on('chat message', function (msg) {
-        console.log("Received a chat message");
-        io.emit('chat message', msg);
-    });
-
-    socket.on('custom-event', (data) => {
-        console.log(data);
-    })
-})
-
-const PORT = 3000
-const saltRounds = 10
-// TODO this should be in a .env file
-const SERVER_SECRET_KEY = 'mySecretKeyHERE'
-
-const checkAuth = () => {
-    return jwtAuthenticate.expressjwt({
-        secret: SERVER_SECRET_KEY, // check the token hasn't been tampered with
-        algorithms: ['HS256'],
-        requestProperty: 'auth' // gives us 'req.auth'
-    })
-}
-
-
-
 mongoose.connect('mongodb://127.0.0.1/petBook');
 
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-http.listen(PORT, () => {
-    const host = http.address().address
-    const port = http.address().port
-    console.log('App listening at http://%s:%s', host, port)
-    // console.log(`Server listening at http://localhost:${PORT} ...`);
-})
+const PORT = 3000
+const saltRounds = 10
+// TODO this should be in a .env file
+const SERVER_SECRET_KEY = 'mySecretKeyHERE'
 
 const db = mongoose.connection;
 
@@ -76,6 +34,78 @@ app.get('/', (req, res) => {
     console.log('Root route was requested');
     res.json({ hello: 'there' })
 })
+
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+    cors: {
+        origin: ['http://localhost:3001']
+    }
+})
+
+let usersAtSocket=[]
+
+const addUser = (userId,socketId) => {
+    !usersAtSocket.some(user=>user.userId === userId) &&
+    usersAtSocket.push({userId,socketId})
+}
+
+const removeUser = (socketId) => {
+    usersAtSocket = usersAtSocket.filter(user=>user.socketId !== socketId)
+}
+
+io.on('connection', function (socket) {
+    // when connecting
+
+    socket.on("addUser",(userId)=>{
+        addUser(userId,socket.id)
+        io.emit("getUsers",usersAtSocket)
+    })
+
+    // when disconnect 
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+        removeUser(socket.id)
+        // io.emit("getUsers",usersAtSocket)
+    });
+    socket.on('goTodisconnect', () => {
+        console.log('Client disconnected');
+        removeUser(socket.id)
+        // io.emit("getUsers",usersAtSocket)
+    });
+
+    //run
+    socket.on('sendMessage', (senderId,text)=> {
+        console.log("Received a chat message");
+        io.emit('getMessage', {
+            senderId,
+            text
+        });
+    });
+
+})
+
+
+
+const checkAuth = () => {
+    return jwtAuthenticate.expressjwt({
+        secret: SERVER_SECRET_KEY, // check the token hasn't been tampered with
+        algorithms: ['HS256'],
+        requestProperty: 'auth' // gives us 'req.auth'
+    })
+}
+
+
+
+
+
+http.listen(PORT, () => {
+    const host = http.address().address
+    const port = http.address().port
+    console.log('App listening at http://%s:%s', host, port)
+    // console.log(`Server listening at http://localhost:${PORT} ...`);
+})
+
+
 
 //======== user ==========
 // TODO: session verify
@@ -189,7 +219,55 @@ app.post('/user/:id', async (req, res) => {
 
 })
 
+//=========message=============
+// post new message
+app.post('/messages/:senderId', async(req,res)=>{
+    try{
 
+        const newMessage = new Message({
+            sender:req.params.senderId,
+            receiver:req.body.receiver,
+            message:req.body.message,
+            chatRoom:req.body.chatRoom
+        })
+
+        const message = await newMessage.save()
+        const resData = await message.populate({
+            path:'sender',
+            select:['name', 'email', '_id', 'profilePicture']
+        })
+
+        console.log('======message',resData)
+        res.json(resData)
+
+    }catch(err){
+        console.log('Error post message',err);
+        res.json(err)
+    }
+})
+
+//get messages
+app.get('/messages/:chatRoom', async(req,res)=>{
+    try{
+
+        const messages = await Message.find({
+            chatRoom:req.params.chatRoom
+        }).populate({
+            path:'sender',
+            select:['name', 'email', '_id', 'profilePicture']
+        })
+        // .populate({
+        //     path:'receiver',
+        //     select:['name', 'email', '_id', 'profilePicture']
+        // })
+
+        res.json(messages.reverse())
+
+    }catch(err){
+        console.log('Error get messages',err);
+        res.json(err)
+    }
+})
 
 
 
@@ -217,7 +295,7 @@ app.get('/posts/profile/:id', async (req, res) => {
                 _id: req.params.id
             }
         }).populate({ path: 'author', select: ['name', 'email', 'profilePicture', '_id'] }).populate('comments')
-        console.log("=====profile posts:", posts);
+        // console.log("=====profile posts:", posts);
         res.json(posts)
     } catch (err) {
         console.error('Error get all posts ', err);
@@ -346,7 +424,7 @@ app.get('/current_user', (req, res) => {
 //post a post
 app.post('/posts', async (req, res) => {
     try {
-        console.log("=====", req.current_user._id);
+        // console.log("=====", req.current_user._id);
         const newPost = new Post({
             author: req.current_user._id,
             message: req.body.message,
@@ -398,13 +476,13 @@ app.post("/like/:id", async (req, res) => {
 
 //delete a post
 app.delete('/post/:id', async (req, res) => {
-    console.log("===============", req.current_user._id);
+    // console.log("===============", req.current_user._id);
     try {
 
         const post = await Post.findById(req.params.id)
 
         if (post.author._id.toString() !== req.current_user._id.toString()) {
-            console.log("===============", post.author._id.toString());
+            // console.log("===============", post.author._id.toString());
             res.json('You do not have the right to edit this post')
             return
         }
@@ -432,7 +510,9 @@ app.delete('/user/:id', async (req, res) => {
 
         await Post.deleteMany({ author: req.current_user._id.toString() })
         await Comment.deleteMany({ author: req.current_user._id.toString() })
-
+        await Message.deleteMany({ sender: req.current_user._id.toString() })
+        await Message.deleteMany({ receiver: req.current_user._id.toString() })
+        // Message
         res.json('user deleted')
     } catch (err) {
         console.error('Error detele user', err);
@@ -491,7 +571,7 @@ app.delete('/comment/:id', async (req, res) => {
         )
 
         const post = await Post.findById(postId)
-        console.log('=====Test: ', post.comments);
+        // console.log('=====Test: ', post.comments);
 
         const deleteComment = await Comment.findByIdAndDelete(req.params.id)
 
