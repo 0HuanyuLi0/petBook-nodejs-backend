@@ -349,6 +349,7 @@ app.post('/follow/:id', async (req, res) => {
 
         if (currentUser.following.includes(req.params.id)) {
             throw new Error('you have followed this user already')
+            return
         }
 
         const currentUser_res = await currentUser.updateOne({ $push: { following: req.params.id } })
@@ -376,6 +377,7 @@ app.post('/unfollow/:id', async (req, res) => {
 
         if (!currentUser.following.includes(req.params.id)) {
             throw new Error('you did not follow this user')
+            return
         }
 
         const currentUser_res = await currentUser.updateOne({ $pull: { following: req.params.id } })
