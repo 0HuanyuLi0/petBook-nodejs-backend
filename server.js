@@ -53,30 +53,35 @@ const addUser = (userId,socketId) => {
 const removeUser = (socketId) => {
     usersAtSocket = usersAtSocket.filter(user=>user.socketId !== socketId)
 }
-
+let numb = 0
 io.on('connection', function (socket) {
     // when connecting
+    numb += 1
+    console.log('connect=====',numb);
 
     socket.on("addUser",(userId)=>{
         addUser(userId,socket.id)
         io.emit("getUsers",usersAtSocket)
+        // console.log('======addUser');
     })
 
     // when disconnect 
     socket.on('disconnect', () => {
         console.log('Client disconnected');
         removeUser(socket.id)
-        // io.emit("getUsers",usersAtSocket)
+        numb = 0
+        // io.emit("getUsers",usersAtSocket) 
     });
     socket.on('goTodisconnect', () => {
         console.log('Client disconnected');
         removeUser(socket.id)
+        numb = 0
         // io.emit("getUsers",usersAtSocket)
     });
 
     //run
     socket.on('sendMessage', (senderId,text)=> {
-        console.log("Received a chat message");
+        // console.log("Received a chat message");
         io.emit('getMessage', {
             senderId,
             text
@@ -84,7 +89,22 @@ io.on('connection', function (socket) {
     });
 
     socket.on('addFriends',()=>{
+        // console.log('======addFriends');
         io.emit('getFriends','getFriends')
+    })
+
+    socket.on('addPosts',()=>{
+        // console.log('======addPosts');
+        io.emit('getPosts','getPosts')
+    })
+
+    socket.on('addComments',()=>{
+        // console.log('======addComments');
+        io.emit('getComments','getComments')
+    })
+
+    socket.on('addNewUser',()=>{
+        io.emit('getAllUsers','getAllUsers')
     })
 
 })
@@ -144,7 +164,7 @@ app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body
 
-        const user = await User.findOne({ email })
+        let user = await User.findOne({ email })
 
         if (!user) {
             res.json('user not found')
@@ -167,6 +187,19 @@ app.post('/login', async (req, res) => {
 
         // strong params
         // let {password, ...filteredUser} = user.toJSON()
+        
+        user = {
+            _id:user._id,
+            name:user.name,
+            profilePicture:user.profilePicture,
+            email:user.email,
+            coverPicture:user.coverPicture,
+            isAdmin:user.isAdmin,
+            description:user.description,
+            location:user.location,
+        }
+        
+
 
         res.json({ token, user })
 
@@ -177,6 +210,17 @@ app.post('/login', async (req, res) => {
 })
 
 // get all users info
+app.get('/users', async (req, res) => {
+    try {
+        const users = await User.find().select(['profilePicture', 'name','_id'])
+
+        res.json(users)
+    } catch (err) {
+        console.error('Error loading all users: ', err);
+    }
+})
+
+//get user image
 app.get('/user/image/:id', async (req, res) => {
     try {
         const usersImage = await User.findById(req.params.id).select(['profilePicture', 'name'])
