@@ -1,12 +1,12 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt')
-
+require('dotenv').config()
 const User = require('./User');
 const Post = require('./Post')
 const Comment = require('./Comment')
 
-mongoose.connect('mongodb://127.0.0.1/petBook');
+mongoose.connect(process.env.MONGODB);
 
 const db = mongoose.connection;
 

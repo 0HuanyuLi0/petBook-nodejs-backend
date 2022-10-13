@@ -39,3 +39,4 @@ node_modules/
 .eslintcache
 # ignore vscode settings files
 .vscode
+.env

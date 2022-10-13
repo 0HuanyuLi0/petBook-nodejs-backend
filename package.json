@@ -6,7 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon server.js",
-    "db:seed": "node models/seeds.js"
+    "db:seed": "node models/seeds.js",
+    "server":"node server.js"
+  },
+  "engines": {
+    "node":"16.16"
   },
   "repository": {
     "type": "git",
@@ -21,6 +25,7 @@
   "dependencies": {
     "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
     "express": "^4.18.1",
     "express-jwt": "^7.7.5",
     "jsonwebtoken": "^8.5.1",

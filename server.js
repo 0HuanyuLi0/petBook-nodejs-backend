@@ -1,4 +1,5 @@
 const express = require('express')
+require('dotenv').config()
 const mongoose = require('mongoose')
 const cors = require('cors')
 
@@ -11,18 +12,17 @@ const Post = require('./models/Post')
 const Comment = require('./models/Comment')
 const Message = require('./models/Message')
 
+
 const app = express()
-mongoose.connect('mongodb://127.0.0.1/petBook');
+mongoose.connect(process.env.MONGODB);
 
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-const PORT = 3000
-const saltRounds = 10
-// TODO this should be in a .env file
-const SERVER_SECRET_KEY = 'mySecretKeyHERE'
+const PORT = process.env.PORT || 3000;
 
+const saltRounds = 10
 const db = mongoose.connection;
 
 db.on('error', err => {
@@ -39,6 +39,7 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
     cors: {
         origin: ['http://localhost:3001']
+        // todo: add frontend link
     }
 })
 
@@ -88,13 +89,11 @@ io.on('connection', function (socket) {
 
 const checkAuth = () => {
     return jwtAuthenticate.expressjwt({
-        secret: SERVER_SECRET_KEY, // check the token hasn't been tampered with
+        secret: process.env.SERVER_SECRET_KEY, // check the token hasn't been tampered with
         algorithms: ['HS256'],
         requestProperty: 'auth' // gives us 'req.auth'
     })
 }
-
-
 
 
 
@@ -108,11 +107,10 @@ http.listen(PORT, () => {
 
 
 //======== user ==========
-// TODO: session verify
 // Sign in - create new user
 app.post('/users', async (req, res) => {
     try {
-        // const salt = await bcrypt.genSalt(saltRounds)
+        
         const hashedPassword = bcrypt.hashSync(req.body.password, saltRounds)
 
         const newUser = new User({
@@ -125,7 +123,7 @@ app.post('/users', async (req, res) => {
 
         const token = jwt.sign(
             { _id: user._id },
-            SERVER_SECRET_KEY,
+            process.env.SERVER_SECRET_KEY,
             { expiresIn: '72h' }
         )
 
@@ -159,7 +157,7 @@ app.post('/login', async (req, res) => {
 
         const token = jwt.sign(
             { _id: user._id },
-            SERVER_SECRET_KEY,
+            process.env.SERVER_SECRET_KEY,
             { expiresIn: '72h' }
         )
 
