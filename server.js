@@ -62,7 +62,7 @@ io.on('connection', function (socket) {
     socket.on("addUser",(userId)=>{
         addUser(userId,socket.id)
         io.emit("getUsers",usersAtSocket)
-        // console.log('======addUser');
+        // console.log('======addUser',usersAtSocket);
     })
 
     // when disconnect 
@@ -70,7 +70,7 @@ io.on('connection', function (socket) {
         // console.log('Client disconnected');
         removeUser(socket.id)
         numb = 0
-        // io.emit("getUsers",usersAtSocket) 
+        io.emit("getUsers",usersAtSocket) 
     });
     socket.on('goTodisconnect', () => {
         // console.log('Client disconnected');
@@ -140,7 +140,8 @@ app.post('/users', async (req, res) => {
         const newUser = new User({
             name: req.body.name,
             email: req.body.email,
-            password: hashedPassword
+            password: hashedPassword,
+            profilePicture:req.body.uploadUrl
         })
 
         const user = await newUser.save()
@@ -209,12 +210,16 @@ app.post('/login', async (req, res) => {
     }
 })
 
-// get all users info
+// get all online users info
+
 app.get('/users', async (req, res) => {
     try {
-        const users = await User.find().select(['profilePicture', 'name','_id'])
-
-        res.json(users)
+        
+        const usersIdArr = usersAtSocket.map(d=>d.userId)
+        
+        const onlineUsers = await User.find({'_id':{$in:usersIdArr}}).select(['profilePicture', 'name','_id'])
+        res.json(onlineUsers)
+       
     } catch (err) {
         console.error('Error loading all users: ', err);
     }
