@@ -53,11 +53,11 @@ const addUser = (userId,socketId) => {
 const removeUser = (socketId) => {
     usersAtSocket = usersAtSocket.filter(user=>user.socketId !== socketId)
 }
-let numb = 0
+// let numb = 0
 io.on('connection', function (socket) {
     // when connecting
-    numb += 1
-    console.log('connect=====',numb);
+    // numb += 1
+    // console.log('connect=====',numb);
 
     socket.on("addUser",(userId)=>{
         addUser(userId,socket.id)
@@ -67,13 +67,13 @@ io.on('connection', function (socket) {
 
     // when disconnect 
     socket.on('disconnect', () => {
-        console.log('Client disconnected');
+        // console.log('Client disconnected');
         removeUser(socket.id)
         numb = 0
         // io.emit("getUsers",usersAtSocket) 
     });
     socket.on('goTodisconnect', () => {
-        console.log('Client disconnected');
+        // console.log('Client disconnected');
         removeUser(socket.id)
         numb = 0
         // io.emit("getUsers",usersAtSocket)
@@ -124,7 +124,7 @@ const checkAuth = () => {
 http.listen(PORT, () => {
     const host = http.address().address
     const port = http.address().port
-    console.log('App listening at http://%s:%s', host, port)
+    // console.log('App listening at http://%s:%s', host, port)
     // console.log(`Server listening at http://localhost:${PORT} ...`);
 })
 
@@ -283,7 +283,7 @@ app.post('/messages/:senderId', async(req,res)=>{
             select:['name', 'email', '_id', 'profilePicture']
         })
 
-        console.log('======message',resData)
+        // console.log('======message',resData)
         res.json(resData)
 
     }catch(err){
@@ -316,7 +316,21 @@ app.get('/messages/:chatRoom', async(req,res)=>{
 })
 
 
+//=====Search=======
+app.post('/search',async(req,res)=>{
+    try{
+        const userResults = await User.find({"name":{ "$regex": req.body.text, "$options": "i" }}).select(['name','_id','profilePicture'])
+        const postResults = await Post.find({"message":{ "$regex": req.body.text, "$options": "i" }}).populate({ path: 'author', select: ['name', 'email', 'profilePicture', '_id'] }).populate('comments')
+        // const commentResults = await Comment.find({message:req.body.text}).select(['_id','message'])
+        let results = userResults.concat(postResults)
+        res.json(results)
+        
 
+    }catch(err){
+        console.error('Error search ', err);
+        res.json(err)
+    }
+})
 
 
 

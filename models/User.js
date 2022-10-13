@@ -22,7 +22,7 @@ const UserSchema = new mongoose.Schema({
 
     profilePicture: {
         type: String,
-        default: 'https://imageio.forbes.com/specials-images/dam/imageserve/1068867780/960x0.jpg?format=jpg&width=960'
+        default: 'https://i.natgeofe.com/n/548467d8-c5f1-4551-9f58-6817a8d2c45e/NationalGeographic_2572187_square.jpg'
     },
 
     coverPicture: {
