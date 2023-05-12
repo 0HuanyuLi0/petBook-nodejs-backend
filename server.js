@@ -474,7 +474,7 @@ app.use(async (req, res, next) => {
     try {
         const user = await User.findById(req.auth._id)
         if (user === null) {
-            res.sendStatus(401)
+            res.sendStatus(401) //401 Unauthorized
         } else {
             req.current_user = user
             next() // move on to the next route
